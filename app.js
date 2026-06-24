@@ -36,19 +36,28 @@ let unsubscribeChat = null; // Unsubscribes from old chat rooms
 // TRACK AUTH STATE
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        authForm.classList.add('hidden');    // Hide the login form completely
-        chatBox.classList.remove('hidden');  // Show main application layout
+        authForm.classList.add('hidden');
+        chatBox.classList.remove('hidden');
         
-        // SAVE user's record to the database
-        await setDoc(doc(db, "users", user.uid), {
+        // Prepare user profile data
+        const userProfile = {
             uid: user.uid,
             email: user.email
-        }, { merge: true });
+        };
 
-        loadUsersList(); // Load the sidebar
+        // If the user typed a display name during sign-up, save it!
+        const chosenName = displayNameInput.value.trim();
+        if (chosenName !== "") {
+            userProfile.displayName = chosenName;
+        }
+
+        // Save/Merge profile to Firestore
+        await setDoc(doc(db, "users", user.uid), userProfile, { merge: true });
+
+        loadUsersList(); 
     } else {
-        authForm.classList.remove('hidden'); // Show the login form again
-        chatBox.classList.add('hidden');    // Hide the chat application layout
+        authForm.classList.remove('hidden');
+        chatBox.classList.add('hidden');
         if (unsubscribeChat) unsubscribeChat();
     }
 });
