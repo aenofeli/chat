@@ -3,38 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My First Firebase Chat</title>
+    <title>Kotha Chat - Private DM</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; display: flex; gap: 20px; }
+        :root {
+            --bg-dark: #121214;
+            --bg-surface: #1a1a1e;
+            --bg-chat: #26262b;
+            --text-main: #e1e1e6;
+            --text-muted: #a8a8b3;
+            --primary: #9871f5;
+            --primary-hover: #7f57df;
+            --bubble-me: #9871f5;
+            --bubble-them: #29292e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { 
+            background-color: var(--bg-dark); 
+            color: var(--text-main); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            padding: 20px;
+        }
+
         .hidden { display: none !important; }
-        #auth-form { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; }
-#chat-box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 600px; display: flex; }
+
+        /* COOL LOGIN INTERFACE */
+        #auth-form {
+            background: var(--bg-surface);
+            border: 1px solid #29292e;
+            padding: 40px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        #auth-form h3 { font-size: 24px; margin-bottom: 24px; color: #fff; }
+        
+        #auth-form input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            border: 1px solid #29292e;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border 0.2s;
+        }
+        #auth-form input:focus { border-color: var(--primary); }
+
+        #auth-form button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: background 0.2s;
+        }
+        #auth-form button:hover { background: var(--primary-hover); }
+        #auth-form id="btn-login" { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        #auth-form id="btn-login":hover { background: rgba(152, 113, 245, 0.1); }
+
+        /* MAIN CHAT DASHBOARD WINDOW */
+        #chat-box {
+            background: var(--bg-surface);
+            border: 1px solid #29292e;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 900px;
+            height: 80vh;
+            display: flex;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* SIDEBAR (DIRECT MESSAGES LIST) */
+        #sidebar {
+            width: 30%;
+            background: #17171a;
+            border-right: 1px solid #29292e;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 10px;
+        }
+
+        #sidebar h3 { font-size: 18px; margin-bottom: 15px; padding-left: 10px; color: var(--text-muted); }
+        
+        #users-list { flex-grow: 1; overflow-y: auto; }
+        
+        #users-list button {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 12px 15px;
+            width: 100%;
+            text-align: left;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px;
+            transition: background 0.2s;
+        }
+        #users-list button:hover { background: rgba(255,255,255,0.05); }
+
+        #btn-logout {
+            background: #29292e;
+            border: none;
+            color: #f75a5a;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        #btn-logout:hover { background: rgba(247, 90, 90, 0.1); }
+
+        /* WORKSPACE (CHAT THREAD PANELS) */
+        #workspace {
+            width: 70%;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+        }
+
+        #chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #29292e;
+            font-size: 16px;
+            background: #19191c;
+        }
+
+        #messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* MESSAGE BUBBLES SCHEME */
+        .msg-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .msg-me {
+            background: var(--bubble-me);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .msg-them {
+            background: var(--bubble-them);
+            color: var(--text-main);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+
+        /* MESSAGE TIMESTAMPS STYLE */
+        .msg-time {
+            font-size: 10px;
+            margin-top: 4px;
+            opacity: 0.65;
+            align-self: flex-end;
+        }
+        .msg-them .msg-time {
+            color: var(--text-muted);
+        }
+
+        /* INPUT BAR AT BOTTOM */
+        .input-area {
+            padding: 20px;
+            background: #19191c;
+            display: flex;
+            gap: 12px;
+            border-top: 1px solid #29292e;
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            border: 1px solid #29292e;
+            color: white;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+        #message-input:disabled { background: #141416; cursor: not-allowed; opacity: 0.5; }
+
+        #btn-send {
+            padding: 12px 24px;
+            background: var(--primary);
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #btn-send:hover { background: var(--primary-hover); }
+        #btn-send:disabled { background: #29292e; cursor: not-allowed; color: var(--text-muted); }
     </style>
 </head>
 <body>
+
     <div id="auth-form">
-        <h3>💬Chat</h3>
-        <input type="text" id="display-name" placeholder="Your Display Name (For Sign Up only)">
+        <h3>💬 Kotha Chat</h3>
+        <input type="text" id="display-name" placeholder="Display Username (For Sign Up)">
         <input type="email" id="email" placeholder="Email Address">
         <input type="password" id="password" placeholder="Password">
         <button id="btn-signup">Create Account</button>
         <button id="btn-login">Sign In</button>
     </div>
 
-    <div id="chat-box" class="hidden" style="gap: 20px; width: 600px;">
+    <div id="chat-box" class="hidden">
         
-        <div id="sidebar" style="width: 200px; border-right: 1px solid #ccc; padding-right: 15px;">
+        <div id="sidebar">
             <h3>Direct Messages</h3>
             <div id="users-list"></div>
-            <br><hr><br>
             <button id="btn-logout">Log Out</button>
         </div>
 
-        <div id="workspace" style="flex-grow: 1;">
-            <h3 id="chat-header">Select a user to start a private DM</h3>
-            <div id="messages" style="height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 5px; margin-bottom: 10px;"></div>
-            <input type="text" id="message-input" placeholder="Type a private message..." disabled>
-            <button id="btn-send" disabled>Send</button>
+        <div id="workspace">
+            <h3 id="chat-header">Select a contact to view conversation</h3>
+            <div id="messages"></div>
+            <div class="input-area">
+                <input type="text" id="message-input" placeholder="Type a secure message..." disabled>
+                <button id="btn-send" disabled>Send</button>
+            </div>
         </div>
 
     </div>
