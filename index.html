@@ -1,17 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My First Firebase Chat</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; display: flex; gap: 20px; }
-        .hidden { display: none !important; }
-        #auth-form, #chat-box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; }
-    </style>
-</head>
 <body>
-
     <div id="auth-form">
         <h3>Login or Sign Up</h3>
         <input type="email" id="email" placeholder="Email"><br><br>
@@ -20,16 +7,23 @@
         <button id="btn-signup">Sign Up</button>
     </div>
 
-    <div id="chat-box" class="hidden">
-        <h3>Chat Room</h3>
-        <p>Logged in as: <span id="user-display"></span></p>
-        <div id="messages" style="height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 5px; margin-bottom: 10px;"></div>
-        <input type="text" id="message-input" placeholder="Type a message...">
-        <button id="btn-send">Send</button>
-        <br><br>
-        <button id="btn-logout">Log Out</button>
+    <div id="chat-box" class="hidden" style="display: flex; gap: 20px; width: 600px;">
+        
+        <div id="sidebar" style="width: 200px; border-right: 1px solid #ccc; padding-right: 15px;">
+            <h3>Direct Messages</h3>
+            <div id="users-list"></div>
+            <br><hr><br>
+            <button id="btn-logout">Log Out</button>
+        </div>
+
+        <div id="workspace" style="flex-grow: 1;">
+            <h3 id="chat-header">Select a user to start a private DM</h3>
+            <div id="messages" style="height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 5px; margin-bottom: 10px;"></div>
+            <input type="text" id="message-input" placeholder="Type a private message..." disabled>
+            <button id="btn-send" disabled>Send</button>
+        </div>
+
     </div>
 
     <script type="module" src="app.js"></script>
 </body>
-</html>
