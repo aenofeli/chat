@@ -7,7 +7,8 @@
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; display: flex; gap: 20px; }
         .hidden { display: none !important; }
-        #auth-form, #chat-box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; }
+        #auth-form { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 300px; }
+#chat-box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; width: 600px; display: flex; }
     </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
         <button id="btn-signup">Sign Up</button>
     </div>
 
-    <div id="chat-box" class="hidden" style="display: flex; gap: 20px; width: 600px;">
+    <div id="chat-box" class="hidden" style="gap: 20px; width: 600px;">
         
         <div id="sidebar" style="width: 200px; border-right: 1px solid #ccc; padding-right: 15px;">
             <h3>Direct Messages</h3>
