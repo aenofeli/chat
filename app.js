@@ -1,9 +1,8 @@
-// 1. Import the specific Firebase functions we need from the official CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-// 2. PASTE YOUR CONFIGURATION FROM STEP 2 HERE:
+// PASTE YOUR FIREBASE CONFIGURATION HERE
 const firebaseConfig = {
   apiKey: "AIzaSyBc9tVE3595zA_UFCQT6RzzYUg6-XlN5V0",
   authDomain: "kotha-25bb1.firebaseapp.com",
@@ -14,88 +13,119 @@ const firebaseConfig = {
   measurementId: "G-P2EC4V07CW"
 };
 
-// 3. Initialize Firebase inside our script
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// HTML Elements Layout
+// HTML elements
 const authForm = document.getElementById('auth-form');
 const chatBox = document.getElementById('chat-box');
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
-const userDisplay = document.getElementById('user-display');
+const usersListDiv = document.getElementById('users-list');
 const messagesDiv = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
+const btnSend = document.getElementById('btn-send');
+const chatHeader = document.getElementById('chat-header');
 
-let unsubscribeChat = null; // Used to turn off real-time listeners when logging out
+let activeChatId = null; // Stores the current private room ID
+let unsubscribeChat = null; // Unsubscribes from old chat rooms
 
-// 4. AUTHENTICATION LISTENER: Tracks if a user signs in or out
-onAuthStateChanged(auth, (user) => {
+// TRACK AUTH STATE
+onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // User just logged in! Show the chat, hide the auth form
         authForm.classList.add('hidden');
-        chatBox.classList.remove('hidden');
-        userDisplay.textContent = user.email;
-        listenForMessages(); // Start listening for new text messages
+        chatBox.style.display = 'flex'; // Show main application layout
+        
+        // SAVE user's record to the database so others can see them in the sidebar
+        await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            email: user.email
+        }, { merge: true });
+
+        loadUsersList(); // Load the sidebar
     } else {
-        // User logged out or isn't logged in yet
         authForm.classList.remove('hidden');
-        chatBox.classList.add('hidden');
-        if (unsubscribeChat) unsubscribeChat(); // Stop listening to database changes
+        chatBox.style.display = 'none';
+        if (unsubscribeChat) unsubscribeChat();
     }
 });
 
-// 5. SIGN UP ACTION
-document.getElementById('btn-signup').addEventListener('click', () => {
-    const email = emailInput.value;
-    const password = passwordInput.value;
-    createUserWithEmailAndPassword(auth, email, password)
-        .catch(error => alert(error.message));
-});
-
-// 6. LOG IN ACTION
-document.getElementById('btn-login').addEventListener('click', () => {
-    const email = emailInput.value;
-    const password = passwordInput.value;
-    signInWithEmailAndPassword(auth, email, password)
-        .catch(error => alert(error.message));
-});
-
-// 7. LOG OUT ACTION
-document.getElementById('btn-logout').addEventListener('click', () => {
-    signOut(auth);
-});
-
-// 8. SEND MESSAGE TO FIRESTORE
-document.getElementById('btn-send').addEventListener('click', async () => {
-    const text = messageInput.value.trim();
-    if (text === "") return;
-
-    messageInput.value = ""; // Clear the input field
-
-    // Add a new document to a global collection called "global_messages"
-    await addDoc(collection(db, "global_messages"), {
-        sender: auth.currentUser.email,
-        messageText: text,
-        timestamp: serverTimestamp() // Uses Firebase's server clock for accuracy
-    });
-});
-
-// 9. REAL-TIME LISTENER: Updates the screen instantly when the database changes
-function listenForMessages() {
-    // Look at "global_messages" ordered by time
-    const q = query(collection(db, "global_messages"), orderBy("timestamp", "asc"));
+// FETCH REGISTERED USERS FOR SIDEBAR
+async function loadUsersList() {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    usersListDiv.innerHTML = ""; // Reset list
     
-    // onSnapshot fires every single time a document is added, modified, or deleted
+    querySnapshot.forEach((docSnap) => {
+        const userRecord = docSnap.data();
+        
+        // Show everyone except yourself
+        if (userRecord.uid !== auth.currentUser.uid) {
+            const userBtn = document.createElement('button');
+            userBtn.textContent = userRecord.email;
+            userBtn.style.display = 'block';
+            userBtn.style.margin = '5px 0';
+            userBtn.style.width = '100%';
+            
+            // When clicked, start a private DM session
+            userBtn.onclick = () => openPrivateChat(userRecord);
+            usersListDiv.appendChild(userBtn);
+        }
+    });
+}
+
+// OPEN PRIVATE DM CHAT
+function openPrivateChat(targetUser) {
+    if (unsubscribeChat) unsubscribeChat(); // Stop listening to the previous person's chat
+    
+    // Sort UIDs alphabetically so the room ID is identical for both users
+    activeChatId = [auth.currentUser.uid, targetUser.uid].sort().join('_');
+    
+    chatHeader.textContent = `DM with: ${targetUser.email}`;
+    messageInput.disabled = false;
+    btnSend.disabled = false;
+
+    // Listen for messages inside this specific private room ID
+    const q = query(collection(db, "chats", activeChatId, "messages"), orderBy("timestamp", "asc"));
+    
     unsubscribeChat = onSnapshot(q, (snapshot) => {
-        messagesDiv.innerHTML = ""; // Clear old message elements
+        messagesDiv.innerHTML = "";
         snapshot.forEach((doc) => {
             const data = doc.data();
             const p = document.createElement('p');
-            p.textContent = `${data.sender}: ${data.messageText}`;
+            // Show "You" or the sender's email
+            const senderName = data.senderId === auth.currentUser.uid ? "You" : targetUser.email;
+            p.textContent = `${senderName}: ${data.text}`;
             messagesDiv.appendChild(p);
         });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
 }
+
+// SEND PRIVATE MESSAGE
+btnSend.addEventListener('click', sendPrivateMessage);
+messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendPrivateMessage(); });
+
+async function sendPrivateMessage() {
+    const text = messageInput.value.trim();
+    if (text === "" || !activeChatId) return;
+
+    messageInput.value = "";
+
+    // Save message inside: chats -> [private_room_id] -> messages -> [individual_message]
+    await addDoc(collection(db, "chats", activeChatId, "messages"), {
+        senderId: auth.currentUser.uid,
+        text: text,
+        timestamp: serverTimestamp()
+    });
+}
+
+// SIGN UP, LOGIN, LOGOUT BUTTONS
+document.getElementById('btn-signup').addEventListener('click', () => {
+    createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(error => alert(error.message));
+});
+document.getElementById('btn-login').addEventListener('click', () => {
+    signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(error => alert(error.message));
+});
+document.getElementById('btn-logout').addEventListener('click', () => { signOut(auth); window.location.reload(); });
