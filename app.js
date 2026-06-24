@@ -28,6 +28,7 @@ const messagesDiv = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
 const btnSend = document.getElementById('btn-send');
 const chatHeader = document.getElementById('chat-header');
+const displayNameInput = document.getElementById('display-name');
 
 let activeChatId = null; // Stores the current private room ID
 let unsubscribeChat = null; // Unsubscribes from old chat rooms
