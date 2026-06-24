@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, collection, addDoc, query, orderBy, onSnapshot, getDocs, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-// PASTE YOUR FIREBASE CONFIGURATION HERE
+// YOUR FIREBASE CONFIGURATION
 const firebaseConfig = {
   apiKey: "AIzaSyBc9tVE3595zA_UFCQT6RzzYUg6-XlN5V0",
   authDomain: "kotha-25bb1.firebaseapp.com",
@@ -95,31 +95,41 @@ function openPrivateChat(targetUser) {
         snapshot.forEach((doc) => {
             const data = doc.data();
             
-            // Outer bubble container
             const bubble = document.createElement('div');
             bubble.classList.add('msg-bubble');
             
-            if (data.senderId === auth.currentUser.uid) {
+            const isMe = data.senderId === auth.currentUser.uid;
+            if (isMe) {
                 bubble.classList.add('msg-me');
             } else {
                 bubble.classList.add('msg-them');
             }
 
-            // Message text container
-            const textNode = document.createTextNode(data.text);
+            // 1. Username Identity Row
+            const nameLabel = document.createElement('span');
+            nameLabel.style.fontSize = '11px';
+            nameLabel.style.fontWeight = 'bold';
+            nameLabel.style.marginBottom = '2px';
+            nameLabel.style.opacity = '0.8';
+            nameLabel.textContent = isMe ? "You" : (targetUser.displayName ? targetUser.displayName : targetUser.email);
+            bubble.appendChild(nameLabel);
+
+            // 2. Message Text Row
+            const textNode = document.createElement('span');
+            textNode.textContent = data.text;
             bubble.appendChild(textNode);
 
-            // Create timestamp layout element
+            // 3. Timestamp Row
+            const timeSpan = document.createElement('span');
+            timeSpan.classList.add('msg-time');
             if (data.timestamp) {
-                const timeSpan = document.createElement('span');
-                timeSpan.classList.add('msg-time');
-                
-                // Convert Firebase Timestamp into standard browser clock readable text
                 const date = data.timestamp.toDate();
                 timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                bubble.appendChild(timeSpan);
+            } else {
+                const localDate = new Date();
+                timeSpan.textContent = localDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
+            bubble.appendChild(timeSpan);
 
             messagesDiv.appendChild(bubble);
         });
@@ -152,3 +162,25 @@ document.getElementById('btn-login').addEventListener('click', () => {
     signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value).catch(error => alert(error.message));
 });
 document.getElementById('btn-logout').addEventListener('click', () => { signOut(auth); window.location.reload(); });
+
+// DELETE ACCOUNT SUBMISSION BUTTON
+document.getElementById('btn-delete-account').addEventListener('click', async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const confirmDelete = confirm("Are you absolutely sure you want to delete your account? This will erase your profile layout entirely.");
+    if (!confirmDelete) return;
+
+    try {
+        await deleteDoc(doc(db, "users", user.uid));
+        await deleteUser(user);
+        alert("Your account has been deleted.");
+        window.location.reload();
+    } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+            alert("For security reasons, please log out, log back in, and try deleting your account again immediately.");
+        } else {
+            alert("Error: " + error.message);
+        }
+    }
+});
