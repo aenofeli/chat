@@ -13,7 +13,6 @@ const firebaseConfig = {
   measurementId: "G-P2EC4V07CW"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -21,6 +20,7 @@ const db = getFirestore(app);
 // HTML elements
 const authForm = document.getElementById('auth-form');
 const chatBox = document.getElementById('chat-box');
+const displayNameInput = document.getElementById('display-name');
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 const usersListDiv = document.getElementById('users-list');
@@ -28,10 +28,9 @@ const messagesDiv = document.getElementById('messages');
 const messageInput = document.getElementById('message-input');
 const btnSend = document.getElementById('btn-send');
 const chatHeader = document.getElementById('chat-header');
-const displayNameInput = document.getElementById('display-name');
 
-let activeChatId = null; // Stores the current private room ID
-let unsubscribeChat = null; // Unsubscribes from old chat rooms
+let activeChatId = null; 
+let unsubscribeChat = null; 
 
 // TRACK AUTH STATE
 onAuthStateChanged(auth, async (user) => {
@@ -39,21 +38,17 @@ onAuthStateChanged(auth, async (user) => {
         authForm.classList.add('hidden');
         chatBox.classList.remove('hidden');
         
-        // Prepare user profile data
         const userProfile = {
             uid: user.uid,
             email: user.email
         };
 
-        // If the user typed a display name during sign-up, save it!
         const chosenName = displayNameInput.value.trim();
         if (chosenName !== "") {
             userProfile.displayName = chosenName;
         }
 
-        // Save/Merge profile to Firestore
         await setDoc(doc(db, "users", user.uid), userProfile, { merge: true });
-
         loadUsersList(); 
     } else {
         authForm.classList.remove('hidden');
@@ -65,20 +60,16 @@ onAuthStateChanged(auth, async (user) => {
 // FETCH REGISTERED USERS FOR SIDEBAR
 async function loadUsersList() {
     const querySnapshot = await getDocs(collection(db, "users"));
-    usersListDiv.innerHTML = ""; // Reset list
+    usersListDiv.innerHTML = ""; 
     
     querySnapshot.forEach((docSnap) => {
         const userRecord = docSnap.data();
         
-        // Show everyone except yourself
         if (userRecord.uid !== auth.currentUser.uid) {
             const userBtn = document.createElement('button');
-            userBtn.textContent = userRecord.email;
-            userBtn.style.display = 'block';
-            userBtn.style.margin = '5px 0';
-            userBtn.style.width = '100%';
+            const nameToShow = userRecord.displayName ? userRecord.displayName : userRecord.email;
+            userBtn.textContent = `👤 ${nameToShow}`;
             
-            // When clicked, start a private DM session
             userBtn.onclick = () => openPrivateChat(userRecord);
             usersListDiv.appendChild(userBtn);
         }
@@ -87,27 +78,50 @@ async function loadUsersList() {
 
 // OPEN PRIVATE DM CHAT
 function openPrivateChat(targetUser) {
-    if (unsubscribeChat) unsubscribeChat(); // Stop listening to the previous person's chat
+    if (unsubscribeChat) unsubscribeChat(); 
     
-    // Sort UIDs alphabetically so the room ID is identical for both users
     activeChatId = [auth.currentUser.uid, targetUser.uid].sort().join('_');
     
-    chatHeader.textContent = `DM with: ${targetUser.email}`;
+    const targetName = targetUser.displayName ? targetUser.displayName : targetUser.email;
+    chatHeader.textContent = `💬 Conversation with: ${targetName}`;
+    
     messageInput.disabled = false;
     btnSend.disabled = false;
 
-    // Listen for messages inside this specific private room ID
     const q = query(collection(db, "chats", activeChatId, "messages"), orderBy("timestamp", "asc"));
     
     unsubscribeChat = onSnapshot(q, (snapshot) => {
         messagesDiv.innerHTML = "";
         snapshot.forEach((doc) => {
             const data = doc.data();
-            const p = document.createElement('p');
-            // Show "You" or the sender's email
-            const senderName = data.senderId === auth.currentUser.uid ? "You" : targetUser.email;
-            p.textContent = `${senderName}: ${data.text}`;
-            messagesDiv.appendChild(p);
+            
+            // Outer bubble container
+            const bubble = document.createElement('div');
+            bubble.classList.add('msg-bubble');
+            
+            if (data.senderId === auth.currentUser.uid) {
+                bubble.classList.add('msg-me');
+            } else {
+                bubble.classList.add('msg-them');
+            }
+
+            // Message text container
+            const textNode = document.createTextNode(data.text);
+            bubble.appendChild(textNode);
+
+            // Create timestamp layout element
+            if (data.timestamp) {
+                const timeSpan = document.createElement('span');
+                timeSpan.classList.add('msg-time');
+                
+                // Convert Firebase Timestamp into standard browser clock readable text
+                const date = data.timestamp.toDate();
+                timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                bubble.appendChild(timeSpan);
+            }
+
+            messagesDiv.appendChild(bubble);
         });
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
@@ -123,7 +137,6 @@ async function sendPrivateMessage() {
 
     messageInput.value = "";
 
-    // Save message inside: chats -> [private_room_id] -> messages -> [individual_message]
     await addDoc(collection(db, "chats", activeChatId, "messages"), {
         senderId: auth.currentUser.uid,
         text: text,
