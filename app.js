@@ -35,10 +35,10 @@ let unsubscribeChat = null; // Unsubscribes from old chat rooms
 // TRACK AUTH STATE
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        authForm.classList.add('hidden');
-        chatBox.style.display = 'flex'; // Show main application layout
+        authForm.style.display = 'none';      // Hide the login form completely
+        chatBox.style.display = 'flex';       // Show main application layout
         
-        // SAVE user's record to the database so others can see them in the sidebar
+        // SAVE user's record to the database
         await setDoc(doc(db, "users", user.uid), {
             uid: user.uid,
             email: user.email
@@ -46,8 +46,8 @@ onAuthStateChanged(auth, async (user) => {
 
         loadUsersList(); // Load the sidebar
     } else {
-        authForm.classList.remove('hidden');
-        chatBox.style.display = 'none';
+        authForm.style.display = 'block';     // Show the login form again
+        chatBox.style.display = 'none';       // Hide the chat application layout
         if (unsubscribeChat) unsubscribeChat();
     }
 });
